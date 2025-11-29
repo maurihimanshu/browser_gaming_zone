@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -16,6 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Build and test job - runs on both PRs and pushes
   build:
     runs-on: ubuntu-latest
     steps:
@@ -31,18 +35,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Lint
+        run: npm run lint
+      
       - name: Build
         run: npm run build
       
       - name: Setup Pages
+        if: github.event_name == 'push'
         uses: actions/configure-pages@v4
       
       - name: Upload artifact
+        if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
 
+  # Deploy job - only runs on pushes to main (not on PRs)
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
