@@ -31,6 +31,7 @@ export default function ConnectFourGame() {
   const boardRef = useRef<Board>([])
   const currentPlayerRef = useRef<Player>(1)
   const winnerRef = useRef<Player | 'Draw' | null>(null)
+  const isAiThinkingRef = useRef(false)
 
   const initializeBoard = useCallback((): Board => {
     return Array(ROWS)
@@ -47,6 +48,7 @@ export default function ConnectFourGame() {
     setWinner(null)
     winnerRef.current = null
     setIsAiThinking(false)
+    isAiThinkingRef.current = false
   }, [initializeBoard])
 
   useEffect(() => {
@@ -60,6 +62,10 @@ export default function ConnectFourGame() {
   useEffect(() => {
     winnerRef.current = winner
   }, [winner])
+
+  useEffect(() => {
+    isAiThinkingRef.current = isAiThinking
+  }, [isAiThinking])
 
   const checkWinner = useCallback((boardState: Board, row: number, col: number, player: Player): boolean => {
     if (!player) return false
@@ -356,11 +362,12 @@ export default function ConnectFourGame() {
   // AI move effect
   useEffect(() => {
     // Only trigger AI if it's player 2's turn, AI is enabled, game is not over, and AI is not already thinking
-    if (!config.aiEnabled || currentPlayer !== 2 || winner || isAiThinking) {
+    if (!config.aiEnabled || currentPlayer !== 2 || winner || isAiThinkingRef.current) {
       return
     }
 
     setIsAiThinking(true)
+    isAiThinkingRef.current = true
     
     const timer = setTimeout(() => {
       try {
@@ -418,6 +425,7 @@ export default function ConnectFourGame() {
         }
       } finally {
         setIsAiThinking(false)
+        isAiThinkingRef.current = false
       }
     }, 500)
     
