@@ -44,7 +44,7 @@ export default function MemoryGame() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const lastClickedRef = useRef<number | null>(null)
-  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const getGridCols = (pairs: number): number => {
     if (pairs <= 4) return 2
