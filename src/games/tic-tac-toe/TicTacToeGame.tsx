@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 type Player = 'X' | 'O' | null
 type Board = Player[]
@@ -12,44 +12,51 @@ const WINNING_COMBINATIONS = [
 export default function TicTacToeGame() {
   const [board, setBoard] = useState<Board>(Array(9).fill(null))
   const [currentPlayer, setCurrentPlayer] = useState<Player>('X')
-  const [winner, setWinner] = useState<Player | 'Draw' | null>(null)
   const [isAiMode, setIsAiMode] = useState(false)
   const [xScore, setXScore] = useState(0)
   const [oScore, setOScore] = useState(0)
 
-  const checkWinner = (board: Board): Player | 'Draw' | null => {
+  const checkWinner = useCallback((boardState: Board): { winner: Player | 'Draw' | null; winningCells: number[] } => {
+    // Check for winner
     for (const combination of WINNING_COMBINATIONS) {
       const [a, b, c] = combination
-      if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-        return board[a]
+      if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+        return { winner: boardState[a], winningCells: combination }
       }
     }
-    if (board.every((cell) => cell !== null)) {
-      return 'Draw'
+    
+    // Check for draw
+    if (boardState.every((cell) => cell !== null)) {
+      return { winner: 'Draw', winningCells: [] }
     }
-    return null
-  }
+    
+    return { winner: null, winningCells: [] }
+  }, [])
 
-  const makeAiMove = useCallback((board: Board): number => {
+  const gameResult = useMemo(() => checkWinner(board), [board, checkWinner])
+  const winner = gameResult.winner
+  const winningCells = gameResult.winningCells
+
+  const makeAiMove = useCallback((boardState: Board): number => {
     // Simple AI: Try to win, then block, then take center, then take corner, else random
-    const availableMoves = board
+    const availableMoves = boardState
       .map((cell, index) => (cell === null ? index : null))
       .filter((index) => index !== null) as number[]
 
     // Try to win
     for (const move of availableMoves) {
-      const testBoard = [...board]
+      const testBoard = [...boardState]
       testBoard[move] = 'O'
-      if (checkWinner(testBoard) === 'O') {
+      if (checkWinner(testBoard).winner === 'O') {
         return move
       }
     }
 
     // Try to block
     for (const move of availableMoves) {
-      const testBoard = [...board]
+      const testBoard = [...boardState]
       testBoard[move] = 'X'
-      if (checkWinner(testBoard) === 'X') {
+      if (checkWinner(testBoard).winner === 'X') {
         return move
       }
     }
@@ -68,56 +75,66 @@ export default function TicTacToeGame() {
 
     // Random move
     return availableMoves[Math.floor(Math.random() * availableMoves.length)]
-  }, [])
+  }, [checkWinner])
 
   const handleCellClick = useCallback((index: number) => {
     if (board[index] || winner) return
 
-    const newBoard = [...board]
-    newBoard[index] = currentPlayer
-    setBoard(newBoard)
-
-    const gameWinner = checkWinner(newBoard)
-    if (gameWinner) {
-      setWinner(gameWinner)
-      if (gameWinner === 'X') {
-        setXScore((prev) => prev + 1)
-      } else if (gameWinner === 'O') {
-        setOScore((prev) => prev + 1)
+    setBoard((prevBoard) => {
+      const newBoard = [...prevBoard]
+      newBoard[index] = currentPlayer
+      
+      const gameResult = checkWinner(newBoard)
+      if (gameResult.winner) {
+        if (gameResult.winner === 'X') {
+          setXScore((prev) => prev + 1)
+        } else if (gameResult.winner === 'O') {
+          setOScore((prev) => prev + 1)
+        }
+      } else {
+        setCurrentPlayer((prev) => (prev === 'X' ? 'O' : 'X'))
       }
-    } else {
-      setCurrentPlayer(currentPlayer === 'X' ? 'O' : 'X')
-    }
-  }, [board, currentPlayer, winner])
+      
+      return newBoard
+    })
+  }, [board, currentPlayer, winner, checkWinner])
 
   useEffect(() => {
-    if (isAiMode && currentPlayer === 'O' && !winner && board) {
+    if (isAiMode && currentPlayer === 'O' && !winner) {
       const timer = setTimeout(() => {
-        const aiMove = makeAiMove(board)
-        if (board[aiMove] === null) {
-          const newBoard = [...board]
-          newBoard[aiMove] = 'O'
-          setBoard(newBoard)
-
-          const gameWinner = checkWinner(newBoard)
-          if (gameWinner) {
-            setWinner(gameWinner)
-            if (gameWinner === 'O') {
-              setOScore((prev) => prev + 1)
-            }
-          } else {
-            setCurrentPlayer('X')
+        setBoard((prevBoard) => {
+          const gameResult = checkWinner(prevBoard)
+          // Only make move if game is still ongoing and it's AI's turn
+          if (gameResult.winner || currentPlayer !== 'O') {
+            return prevBoard
           }
-        }
+          
+          const aiMove = makeAiMove(prevBoard)
+          if (prevBoard[aiMove] === null) {
+            const newBoard = [...prevBoard]
+            newBoard[aiMove] = 'O'
+            
+            const newGameResult = checkWinner(newBoard)
+            if (newGameResult.winner) {
+              if (newGameResult.winner === 'O') {
+                setOScore((prev) => prev + 1)
+              }
+            } else {
+              setCurrentPlayer('X')
+            }
+            
+            return newBoard
+          }
+          return prevBoard
+        })
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [currentPlayer, isAiMode, board, winner, makeAiMove])
+  }, [currentPlayer, isAiMode, winner, makeAiMove, checkWinner])
 
   const resetGame = () => {
     setBoard(Array(9).fill(null))
     setCurrentPlayer('X')
-    setWinner(null)
   }
 
   const resetScores = () => {
@@ -176,24 +193,30 @@ export default function TicTacToeGame() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 bg-white/10 p-4 rounded-lg">
-        {board.map((cell, index) => (
-          <button
-            key={index}
-            onClick={() => handleCellClick(index)}
-            disabled={!!cell || !!winner}
-            className={`w-20 h-20 text-4xl font-bold rounded transition-all ${
-              cell === 'X'
-                ? 'bg-blue-500 text-white'
-                : cell === 'O'
-                ? 'bg-red-500 text-white'
-                : 'bg-white/20 hover:bg-white/30 text-white/50'
-            } disabled:cursor-not-allowed disabled:opacity-50`}
-          >
-            {cell}
-          </button>
-        ))}
+        {board.map((cell, index) => {
+          const isWinningCell = winningCells.includes(index)
+          return (
+            <button
+              key={index}
+              onClick={() => handleCellClick(index)}
+              disabled={!!cell || !!winner}
+              className={`
+                w-20 h-20 text-4xl font-bold rounded transition-all duration-200
+                ${cell === 'X'
+                  ? 'bg-blue-500 text-white'
+                  : cell === 'O'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-white/20 hover:bg-white/30 text-white/50'
+                }
+                ${isWinningCell ? 'ring-4 ring-yellow-400 ring-offset-2 scale-110' : ''}
+                disabled:cursor-not-allowed disabled:opacity-50
+              `}
+            >
+              {cell}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
 }
-
