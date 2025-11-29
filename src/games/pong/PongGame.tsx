@@ -20,7 +20,6 @@ const PADDLE_WIDTH = 10
 const PADDLE_SPEED = 200 // pixels per second
 const BALL_SIZE = 10
 const TARGET_FPS = 60
-const FRAME_TIME = 1000 / TARGET_FPS
 
 const DEFAULT_CONFIG: PongGameConfig = {
   ballSpeed: 350, // pixels per second
