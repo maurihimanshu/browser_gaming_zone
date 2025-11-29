@@ -9,6 +9,7 @@ export interface GameMetadata {
   players: number
   estimatedTime: string
   thumbnail?: string
+  mobileCompatible: boolean // Whether the game works well on mobile devices
 }
 
 export interface GameModule {

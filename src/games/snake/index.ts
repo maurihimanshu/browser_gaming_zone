@@ -10,6 +10,7 @@ const snakeGame: GameModule = {
     difficulty: 'Easy',
     players: 1,
     estimatedTime: '5-10 min',
+    mobileCompatible: false, // Requires keyboard (arrow keys)
   },
   component: SnakeGame,
 }

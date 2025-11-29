@@ -24,7 +24,7 @@ export default function Layout({ children }: LayoutProps) {
                 Dashboard
               </Link>
               <a
-                href="https://github.com"
+                href="https://github.com/maurihimanshu/browser_gaming_zone"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/80 hover:text-white transition-colors"

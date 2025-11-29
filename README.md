@@ -27,8 +27,8 @@ A modern, scalable React application featuring a collection of browser-based gam
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/gamer.git
-cd gamer
+git clone https://github.com/maurihimanshu/browser_gaming_zone.git
+cd browser_gaming_zone
 
 # Install dependencies
 npm install
@@ -202,7 +202,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ### Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/gamer)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/maurihimanshu/browser_gaming_zone)
 
 1. Push your code to GitHub
 2. Import the project on Vercel
