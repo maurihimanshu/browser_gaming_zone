@@ -220,6 +220,15 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 See the GitHub Actions workflow in `.github/workflows/deploy.yml` for automatic deployment.
 
+**Important:** To ensure deployment only happens after PR approval:
+1. Go to repository Settings → Branches
+2. Add a branch protection rule for `main` branch
+3. Enable "Require a pull request before merging"
+4. Enable "Require approvals" (set to 1 or more)
+5. Optionally enable "Require status checks to pass before merging"
+
+This ensures that code is reviewed and tested before being deployed.
+
 ## 🎯 Roadmap
 
 - [ ] Add more games (Pong, Tetris, Memory Game, etc.)
