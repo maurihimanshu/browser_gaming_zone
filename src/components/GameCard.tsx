@@ -39,7 +39,7 @@ export default function GameCard({ game, onClick }: GameCardProps) {
         </span>
       </div>
       <p className="text-white/70 mb-4 line-clamp-2">{metadata.description}</p>
-      <div className="flex items-center justify-between text-sm text-white/60">
+      <div className="flex items-center justify-between text-sm text-white/60 mb-2">
         <div className="flex items-center gap-4">
           <span>👥 {metadata.players}</span>
           <span>⏱️ {metadata.estimatedTime}</span>
@@ -47,6 +47,17 @@ export default function GameCard({ game, onClick }: GameCardProps) {
         <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs">
           {metadata.category}
         </span>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        {metadata.mobileCompatible ? (
+          <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded border border-green-500/30 flex items-center gap-1">
+            📱 Mobile
+          </span>
+        ) : (
+          <span className="bg-orange-500/20 text-orange-300 px-2 py-1 rounded border border-orange-500/30 flex items-center gap-1">
+            ⌨️ Desktop Only
+          </span>
+        )}
       </div>
       <div className="mt-4 pt-4 border-t border-white/10">
         <button className="btn-primary w-full">Play Now →</button>

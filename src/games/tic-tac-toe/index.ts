@@ -10,6 +10,7 @@ const ticTacToeGame: GameModule = {
     difficulty: 'Easy',
     players: 2,
     estimatedTime: '2-5 min',
+    mobileCompatible: true, // Touch-friendly, works on mobile
   },
   component: TicTacToeGame,
 }
