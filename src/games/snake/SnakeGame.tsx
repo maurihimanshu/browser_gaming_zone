@@ -22,15 +22,25 @@ const DEFAULT_CONFIG: SnakeGameConfig = {
 
 export default function SnakeGame() {
   const [config, setConfig] = useState<SnakeGameConfig>(DEFAULT_CONFIG)
-  const [snake, setSnake] = useState<Position[]>([])
-  const [food, setFood] = useState<Position>({ x: 15, y: 15 })
-  const [direction, setDirection] = useState<Position>({ x: 1, y: 0 })
-  const [gameOver, setGameOver] = useState(false)
-  const [score, setScore] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  
+  // Use refs for game state to avoid unnecessary re-renders
+  const gameStateRef = useRef({
+    snake: [] as Position[],
+    food: { x: 15, y: 15 } as Position,
+    direction: { x: 1, y: 0 } as Position,
+    gameOver: false,
+    score: 0,
+    isPaused: false,
+  })
+
   const directionRef = useRef({ x: 1, y: 0 })
-  const gameSpeedRef = useRef(config.gameSpeed)
+  const lastMoveTimeRef = useRef(0)
+  const animationFrameRef = useRef<number>()
+
+  // State for UI updates only
+  const [, forceUpdate] = useState(0)
+  const triggerUpdate = () => forceUpdate((prev) => prev + 1)
 
   // Initialize snake position based on grid size
   const getInitialSnake = useCallback((gridSize: number): Position[] => {
@@ -38,29 +48,49 @@ export default function SnakeGame() {
     return [{ x: center, y: center }]
   }, [])
 
-  const generateFood = useCallback((gridSize: number): Position => {
-    return {
-      x: Math.floor(Math.random() * gridSize),
-      y: Math.floor(Math.random() * gridSize),
+  const generateFood = useCallback((gridSize: number, snake: Position[]): Position => {
+    const emptyCells: Position[] = []
+    
+    // Find all empty cells
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        const isSnakeCell = snake.some((segment) => segment.x === x && segment.y === y)
+        if (!isSnakeCell) {
+          emptyCells.push({ x, y })
+        }
+      }
     }
+
+    // If no empty cells, return a default position (shouldn't happen in normal gameplay)
+    if (emptyCells.length === 0) {
+      return { x: 0, y: 0 }
+    }
+
+    // Return random empty cell
+    return emptyCells[Math.floor(Math.random() * emptyCells.length)]
   }, [])
 
-  // Initialize game
-  useEffect(() => {
+  const initializeGame = useCallback(() => {
     const initialSnake = getInitialSnake(config.gridSize)
-    setSnake(initialSnake)
-    setFood(generateFood(config.gridSize))
-    setDirection({ x: 1, y: 0 })
+    const initialFood = generateFood(config.gridSize, initialSnake)
+    
+    gameStateRef.current = {
+      snake: initialSnake,
+      food: initialFood,
+      direction: { x: 1, y: 0 },
+      gameOver: false,
+      score: 0,
+      isPaused: false,
+    }
+    
     directionRef.current = { x: 1, y: 0 }
-    setGameOver(false)
-    setScore(0)
-    setIsPaused(false)
+    lastMoveTimeRef.current = 0
+    triggerUpdate()
   }, [config.gridSize, getInitialSnake, generateFood])
 
-  // Update game speed ref when config changes
   useEffect(() => {
-    gameSpeedRef.current = config.gameSpeed
-  }, [config.gameSpeed])
+    initializeGame()
+  }, [initializeGame, config.gridSize, config.boundariesEnabled])
 
   const checkCollision = useCallback(
     (head: Position, snake: Position[], boundariesEnabled: boolean, gridSize: number): boolean => {
@@ -70,7 +100,6 @@ export default function SnakeGame() {
           return true
         }
       }
-      // Note: Wrapping is handled in gameLoop before calling checkCollision
 
       // Check self collision
       return snake.some((segment, index) => {
@@ -81,62 +110,76 @@ export default function SnakeGame() {
     []
   )
 
-  const gameLoop = useCallback(() => {
-    if (gameOver || isPaused) return
+  const moveSnake = useCallback(() => {
+    const state = gameStateRef.current
+    if (state.gameOver || state.isPaused) return
 
-    setSnake((prevSnake) => {
-      const newHead: Position = {
-        x: prevSnake[0].x + directionRef.current.x,
-        y: prevSnake[0].y + directionRef.current.y,
+    const newHead: Position = {
+      x: state.snake[0].x + directionRef.current.x,
+      y: state.snake[0].y + directionRef.current.y,
+    }
+
+    // Handle wrapping if boundaries disabled
+    if (!config.boundariesEnabled) {
+      if (newHead.x < 0) {
+        newHead.x = config.gridSize - 1
+      } else if (newHead.x >= config.gridSize) {
+        newHead.x = 0
       }
-
-      // Handle wrapping if boundaries disabled
-      if (!config.boundariesEnabled) {
-        if (newHead.x < 0) {
-          newHead.x = config.gridSize - 1
-        } else if (newHead.x >= config.gridSize) {
-          newHead.x = 0
-        }
-        if (newHead.y < 0) {
-          newHead.y = config.gridSize - 1
-        } else if (newHead.y >= config.gridSize) {
-          newHead.y = 0
-        }
+      if (newHead.y < 0) {
+        newHead.y = config.gridSize - 1
+      } else if (newHead.y >= config.gridSize) {
+        newHead.y = 0
       }
+    }
 
-      if (checkCollision(newHead, prevSnake, config.boundariesEnabled, config.gridSize)) {
-        setGameOver(true)
-        return prevSnake
-      }
+    // Check collision
+    if (checkCollision(newHead, state.snake, config.boundariesEnabled, config.gridSize)) {
+      state.gameOver = true
+      triggerUpdate()
+      return
+    }
 
-      const newSnake = [newHead, ...prevSnake]
+    const newSnake = [newHead, ...state.snake]
 
-      // Check if food is eaten
-      if (newHead.x === food.x && newHead.y === food.y) {
-        let newFood = generateFood(config.gridSize)
-        // Make sure food doesn't spawn on snake
-        while (newSnake.some((segment) => segment.x === newFood.x && segment.y === newFood.y)) {
-          newFood = generateFood(config.gridSize)
-        }
-        setFood(newFood)
-        setScore((prev) => prev + 10)
-        return newSnake
-      }
-
+    // Check if food is eaten
+    if (newHead.x === state.food.x && newHead.y === state.food.y) {
+      state.snake = newSnake
+      state.score += 10
+      state.food = generateFood(config.gridSize, newSnake)
+      triggerUpdate()
+    } else {
       // Remove tail if no food eaten
       newSnake.pop()
-      return newSnake
-    })
-  }, [food, gameOver, isPaused, config, checkCollision, generateFood])
+      state.snake = newSnake
+    }
+  }, [config, checkCollision, generateFood])
 
+  // Game loop using requestAnimationFrame
   useEffect(() => {
-    const interval = setInterval(gameLoop, gameSpeedRef.current)
-    return () => clearInterval(interval)
-  }, [gameLoop])
+    const gameLoop = (currentTime: number) => {
+      const state = gameStateRef.current
+      
+      if (!state.gameOver && !state.isPaused) {
+        // Move snake at configured interval
+        if (currentTime - lastMoveTimeRef.current >= config.gameSpeed) {
+          moveSnake()
+          lastMoveTimeRef.current = currentTime
+        }
+      }
 
-  useEffect(() => {
-    directionRef.current = direction
-  }, [direction])
+      animationFrameRef.current = requestAnimationFrame(gameLoop)
+    }
+
+    lastMoveTimeRef.current = performance.now()
+    animationFrameRef.current = requestAnimationFrame(gameLoop)
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [config.gameSpeed, config.boundariesEnabled, config.gridSize, moveSnake])
 
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {
@@ -145,35 +188,45 @@ export default function SnakeGame() {
         e.preventDefault()
       }
 
-      if (gameOver) return
+      const state = gameStateRef.current
+      if (state.gameOver) return
 
       switch (e.key) {
         case 'ArrowUp':
-          if (directionRef.current.y === 0) {
-            setDirection({ x: 0, y: -1 })
+          // Prevent reversing into itself (can't go up if currently going down)
+          if (directionRef.current.y === 0 && state.snake.length > 0) {
+            directionRef.current = { x: 0, y: -1 }
+            state.direction = { x: 0, y: -1 }
           }
           break
         case 'ArrowDown':
-          if (directionRef.current.y === 0) {
-            setDirection({ x: 0, y: 1 })
+          // Prevent reversing into itself (can't go down if currently going up)
+          if (directionRef.current.y === 0 && state.snake.length > 0) {
+            directionRef.current = { x: 0, y: 1 }
+            state.direction = { x: 0, y: 1 }
           }
           break
         case 'ArrowLeft':
-          if (directionRef.current.x === 0) {
-            setDirection({ x: -1, y: 0 })
+          // Prevent reversing into itself (can't go left if currently going right)
+          if (directionRef.current.x === 0 && state.snake.length > 0) {
+            directionRef.current = { x: -1, y: 0 }
+            state.direction = { x: -1, y: 0 }
           }
           break
         case 'ArrowRight':
-          if (directionRef.current.x === 0) {
-            setDirection({ x: 1, y: 0 })
+          // Prevent reversing into itself (can't go right if currently going left)
+          if (directionRef.current.x === 0 && state.snake.length > 0) {
+            directionRef.current = { x: 1, y: 0 }
+            state.direction = { x: 1, y: 0 }
           }
           break
         case ' ':
-          setIsPaused((prev) => !prev)
+          state.isPaused = !state.isPaused
+          triggerUpdate()
           break
       }
     },
-    [gameOver]
+    []
   )
 
   useEffect(() => {
@@ -182,19 +235,12 @@ export default function SnakeGame() {
   }, [handleKeyPress])
 
   const resetGame = () => {
-    const initialSnake = getInitialSnake(config.gridSize)
-    setSnake(initialSnake)
-    setFood(generateFood(config.gridSize))
-    setDirection({ x: 1, y: 0 })
-    directionRef.current = { x: 1, y: 0 }
-    setGameOver(false)
-    setScore(0)
-    setIsPaused(false)
+    initializeGame()
   }
 
   const handleConfigChange = (newConfig: SnakeGameConfig) => {
     setConfig(newConfig)
-    resetGame()
+    // Game will reset automatically via useEffect when config changes
   }
 
   // Calculate game area size (exact pixel size needed for all cells)
@@ -203,6 +249,8 @@ export default function SnakeGame() {
   const borderWidth = 8
   // Total container size including border
   const containerSize = gameAreaSize + borderWidth
+
+  const currentState = gameStateRef.current
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -227,18 +275,20 @@ export default function SnakeGame() {
       {/* Game Info */}
       <div className="mb-4 flex items-center justify-between w-full max-w-2xl">
         <div className="text-white">
-          <div className="text-2xl font-bold">Score: {score}</div>
-          {gameOver && <div className="text-red-400 font-semibold">Game Over!</div>}
-          {isPaused && !gameOver && <div className="text-yellow-400 font-semibold">Paused</div>}
-          {!gameOver && !isPaused && (
+          <div className="text-2xl font-bold">Score: {currentState.score}</div>
+          {currentState.gameOver && <div className="text-red-400 font-semibold">Game Over!</div>}
+          {currentState.isPaused && !currentState.gameOver && (
+            <div className="text-yellow-400 font-semibold">Paused</div>
+          )}
+          {!currentState.gameOver && !currentState.isPaused && (
             <div className="text-white/60 text-sm mt-1">
               Speed: {config.gameSpeed}ms | Grid: {config.gridSize}x{config.gridSize} |{' '}
-              {config.boundariesEnabled ? 'Walls' : 'Wrapping'}
+              {config.boundariesEnabled ? 'Walls' : 'Wrapping'} | Length: {currentState.snake.length}
             </div>
           )}
         </div>
         <button onClick={resetGame} className="btn-primary">
-          {gameOver ? 'Play Again' : 'Reset'}
+          {currentState.gameOver ? 'Play Again' : 'Reset'}
         </button>
       </div>
 
@@ -262,11 +312,11 @@ export default function SnakeGame() {
           }}
         >
           {/* Snake */}
-          {snake.map((segment, index) => (
+          {currentState.snake.map((segment, index) => (
             <div
-              key={index}
-              className={`absolute rounded ${
-                index === 0 ? 'bg-green-500' : 'bg-green-400'
+              key={`snake-${index}-${segment.x}-${segment.y}`}
+              className={`absolute rounded transition-all duration-75 ${
+                index === 0 ? 'bg-green-500 z-10' : 'bg-green-400'
               }`}
               style={{
                 left: segment.x * config.cellSize,
@@ -278,15 +328,17 @@ export default function SnakeGame() {
           ))}
 
           {/* Food */}
-          <div
-            className="absolute bg-red-500 rounded-full"
-            style={{
-              left: food.x * config.cellSize,
-              top: food.y * config.cellSize,
-              width: config.cellSize,
-              height: config.cellSize,
-            }}
-          />
+          {!currentState.gameOver && (
+            <div
+              className="absolute bg-red-500 rounded-full z-20 animate-pulse"
+              style={{
+                left: currentState.food.x * config.cellSize,
+                top: currentState.food.y * config.cellSize,
+                width: config.cellSize,
+                height: config.cellSize,
+              }}
+            />
+          )}
         </div>
       </div>
 
