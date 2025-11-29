@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllGames } from '@/utils/gameRegistry'
-import { useIsMobile } from '@/hooks/useDeviceType'
 import GameCard from './GameCard'
 
 type CompatibilityFilter = 'all' | 'mobile' | 'desktop'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const isMobile = useIsMobile()
   const allGames = getAllGames()
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [searchQuery, setSearchQuery] = useState('')
