@@ -38,6 +38,13 @@ export default function SnakeGame() {
     return [{ x: center, y: center }]
   }, [])
 
+  const generateFood = useCallback((gridSize: number): Position => {
+    return {
+      x: Math.floor(Math.random() * gridSize),
+      y: Math.floor(Math.random() * gridSize),
+    }
+  }, [])
+
   // Initialize game
   useEffect(() => {
     const initialSnake = getInitialSnake(config.gridSize)
@@ -48,19 +55,12 @@ export default function SnakeGame() {
     setGameOver(false)
     setScore(0)
     setIsPaused(false)
-  }, [config.gridSize, getInitialSnake])
+  }, [config.gridSize, getInitialSnake, generateFood])
 
   // Update game speed ref when config changes
   useEffect(() => {
     gameSpeedRef.current = config.gameSpeed
   }, [config.gameSpeed])
-
-  const generateFood = useCallback((gridSize: number): Position => {
-    return {
-      x: Math.floor(Math.random() * gridSize),
-      y: Math.floor(Math.random() * gridSize),
-    }
-  }, [])
 
   const checkCollision = useCallback(
     (head: Position, snake: Position[], boundariesEnabled: boolean, gridSize: number): boolean => {
@@ -85,17 +85,23 @@ export default function SnakeGame() {
     if (gameOver || isPaused) return
 
     setSnake((prevSnake) => {
-      let newHead: Position = {
+      const newHead: Position = {
         x: prevSnake[0].x + directionRef.current.x,
         y: prevSnake[0].y + directionRef.current.y,
       }
 
       // Handle wrapping if boundaries disabled
       if (!config.boundariesEnabled) {
-        if (newHead.x < 0) newHead.x = config.gridSize - 1
-        if (newHead.x >= config.gridSize) newHead.x = 0
-        if (newHead.y < 0) newHead.y = config.gridSize - 1
-        if (newHead.y >= config.gridSize) newHead.y = 0
+        if (newHead.x < 0) {
+          newHead.x = config.gridSize - 1
+        } else if (newHead.x >= config.gridSize) {
+          newHead.x = 0
+        }
+        if (newHead.y < 0) {
+          newHead.y = config.gridSize - 1
+        } else if (newHead.y >= config.gridSize) {
+          newHead.y = 0
+        }
       }
 
       if (checkCollision(newHead, prevSnake, config.boundariesEnabled, config.gridSize)) {

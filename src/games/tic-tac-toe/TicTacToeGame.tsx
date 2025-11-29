@@ -30,7 +30,7 @@ export default function TicTacToeGame() {
     return null
   }
 
-  const makeAiMove = (board: Board): number => {
+  const makeAiMove = useCallback((board: Board): number => {
     // Simple AI: Try to win, then block, then take center, then take corner, else random
     const availableMoves = board
       .map((cell, index) => (cell === null ? index : null))
@@ -68,7 +68,7 @@ export default function TicTacToeGame() {
 
     // Random move
     return availableMoves[Math.floor(Math.random() * availableMoves.length)]
-  }
+  }, [])
 
   const handleCellClick = useCallback((index: number) => {
     if (board[index] || winner) return
@@ -112,7 +112,7 @@ export default function TicTacToeGame() {
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [currentPlayer, isAiMode, board, winner])
+  }, [currentPlayer, isAiMode, board, winner, makeAiMove])
 
   const resetGame = () => {
     setBoard(Array(9).fill(null))
