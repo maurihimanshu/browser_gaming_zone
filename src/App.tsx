@@ -4,8 +4,11 @@ import GameView from './components/GameView'
 import Layout from './components/Layout'
 
 function App() {
+  // Use base path for GitHub Pages, empty for local development
+  const basename = import.meta.env.PROD ? '/browser_gaming_zone' : ''
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
